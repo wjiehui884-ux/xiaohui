@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rental Time Picker</title>
+  <style>
+    :root {
+      --ink: #222222;
+      --muted: #5a6066;
+      --faint: rgba(90, 96, 102, .3);
+      --selected: #14233a;
+      --button: #d4d6da;
+      --button-active: #0088ff;
+      --wheel: #e7e8eb;
+      --line: rgba(0, 69, 198, .05);
+      font-family: MiSans, "MiSans Latin", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #f4f5f7;
+      color: var(--ink);
+    }
+
+    body {
+      display: grid;
+      place-items: start center;
+    }
+
+    .screen {
+      position: relative;
+      width: 375px;
+      height: 812px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .12);
+    }
+
+    .status-bar {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 27px 0 35px;
+      background: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .system-icons {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .signal {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 13px;
+    }
+
+    .signal span {
+      width: 3px;
+      border-radius: 2px;
+      background: #000;
+    }
+
+    .signal span:nth-child(1) { height: 5px; }
+    .signal span:nth-child(2) { height: 7px; }
+    .signal span:nth-child(3) { height: 10px; }
+    .signal span:nth-child(4) { height: 13px; }
+
+    .wifi {
+      position: relative;
+      width: 17px;
+      height: 12px;
+    }
+
+    .wifi::before,
+    .wifi::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      border: 2px solid #000;
+      border-color: #000 transparent transparent transparent;
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+
+    .wifi::before {
+      top: 1px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .wifi::after {
+      top: 5px;
+      width: 9px;
+      height: 9px;
+    }
+
+    .wifi i {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #000;
+      transform: translateX(-50%);
+    }
+
+    .battery {
+      position: relative;
+      width: 27px;
+      height: 13px;
+      border: 1.3px solid #000;
+      border-radius: 4px;
+      padding: 2px;
+    }
+
+    .battery::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+      background: #000;
+    }
+
+    .battery::after {
+      content: "";
+      position: absolute;
+      right: -3px;
+      top: 4px;
+      width: 2px;
+      height: 5px;
+      border-radius: 0 2px 2px 0;
+      background: #000;
+      opacity: .55;
+    }
+
+    .header {
+      position: absolute;
+      left: 0;
+      top: 56px;
+      width: 375px;
+      height: 72px;
+      background: #fff;
+    }
+
+    .close {
+      position: absolute;
+      left: 24px;
+      top: 6px;
+      width: 16px;
+      height: 16px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .close::before,
+    .close::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: -1px;
+      width: 1.4px;
+      height: 19px;
+      border-radius: 2px;
+      background: #9aa1a9;
+    }
+
+    .close::before { transform: rotate(45deg); }
+    .close::after { transform: rotate(-45deg); }
+
+    .title {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      margin: 0;
+      transform: translateX(-50%);
+      font-size: 18px;
+      line-height: 26px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .weekdays {
+      position: absolute;
+      left: 12px;
+      top: 38px;
+      display: grid;
+      width: 351px;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 18px;
+      text-align: center;
+    }
+
+    .weekday {
+      padding: 4px 0;
+    }
+
+    .calendar {
+      position: absolute;
+      left: 0;
+      top: 128px;
+      width: 375px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .month-title {
+      height: 36px;
+      padding: 0 24px;
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 800;
+    }
+
+    .month-grid {
+      display: grid;
+      width: 351px;
+      margin: 0 auto;
+      grid-template-columns: repeat(7, 1fr);
+      grid-auto-rows: 47px;
+      gap: 4px;
+    }
+
+    .date {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 47px;
+      border: 0;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 24px;
+      font-weight: 700;
+      text-align: center;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .date:empty {
+      cursor: default;
+    }
+
+    .date.disabled {
+      color: var(--faint);
+      cursor: default;
+    }
+
+    .date.underline {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .date.in-range {
+      border-radius: 0;
+    }
+
+    .date.in-range:not(.range-start):not(.range-end)::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: -4px;
+      right: 0;
+      background: var(--wheel);
+      z-index: 0;
+    }
+
+    .date.range-start,
+    .date.range-end {
+      color: #fff;
+    }
+
+    .date.has-range.range-start::after,
+    .date.has-range.range-end::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      background: var(--wheel);
+      z-index: 0;
+    }
+
+    .date.has-range.range-start::after {
+      left: 50%;
+      right: -4px;
+      border-radius: 0;
+    }
+
+    .date.has-range.range-end::after {
+      left: -8px;
+      right: 50%;
+      border-radius: 0;
+    }
+
+    .date.has-range.range-start.same-day::after,
+    .date.has-range.range-end.same-day::after {
+      display: none;
+    }
+
+    .date.range-start::before,
+    .date.range-end::before {
+      content: "";
+      position: absolute;
+      width: 43px;
+      height: 43px;
+      border-radius: 50%;
+      background: var(--selected);
+      z-index: 1;
+    }
+
+    .date.same-day::before {
+      width: 43px;
+      height: 43px;
+      background: var(--selected);
+      box-shadow:
+        inset 0 0 0 1px #ffffff,
+        0 0 0 1px var(--selected);
+    }
+
+    .date span {
+      position: relative;
+      z-index: 2;
+    }
+
+    .time-card {
+      position: absolute;
+      left: 12px;
+      bottom: 132px;
+      z-index: 10;
+      width: 351px;
+      height: 176px;
+      padding: 12px 12px 4px;
+      overflow: hidden;
+      border: .5px solid var(--line);
+      border-radius: 12px;
+      background:
+        linear-gradient(90deg, #fff 0%, #fff 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, .6) 0%, #fff 20%);
+      box-shadow:
+        0 -8px 24px rgba(0, 56, 134, .03),
+        0 0 16px 1px rgba(0, 120, 201, .03);
+    }
+
+    .time-head {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 24px;
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .time-wheel {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 327px;
+      margin-top: 4px;
+      height: 132px;
+      overflow: hidden;
+      mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 114px, transparent 132px);
+    }
+
+    .wheel-column {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      touch-action: none;
+      cursor: ns-resize;
+      user-select: none;
+    }
+
+    .time-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      height: 44px;
+      border-radius: 6px;
+      color: rgba(34, 34, 34, .18);
+      font-size: 20px;
+      line-height: 28px;
+      font-weight: 800;
+    }
+
+    .time-row.active {
+      color: var(--ink);
+      background: var(--wheel);
+    }
+
+    .colon {
+      padding: 0;
+    }
+
+    .footer {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      z-index: 20;
+      width: 375px;
+      height: 132px;
+      background: #fff;
+    }
+
+    .selection {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      height: 34px;
+      padding: 12px 12px 4px;
+      font-size: 12px;
+      line-height: 18px;
+      white-space: nowrap;
+    }
+
+    .selection .done {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .selection .empty {
+      color: rgba(90, 96, 102, .3);
+      font-weight: 600;
+    }
+
+    .bottom-tab {
+      position: relative;
+      height: 98px;
+      background: #fff;
+    }
+
+    .continue {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      width: 351px;
+      height: 48px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--button);
+      color: #fff;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 600;
+    }
+
+    .continue.active {
+      background: var(--button-active);
+      cursor: pointer;
+    }
+
+    .home-indicator {
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      width: 134px;
+      height: 5px;
+      border-radius: 100px;
+      background: #000;
+      transform: translateX(-50%);
+    }
+
+    @media (max-width: 420px) {
+      body {
+        place-items: start center;
+        background: #fff;
+      }
+
+      .screen {
+        width: 100vw;
+        max-width: 375px;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen" aria-label="Add dates and times">
+    <div class="status-bar" aria-hidden="true">
+      <div>9:41</div>
+      <div class="system-icons">
+        <div class="signal"><span></span><span></span><span></span><span></span></div>
+        <div class="wifi"><i></i></div>
+        <div class="battery"></div>
+      </div>
+    </div>
+
+    <header class="header">
+      <button class="close" aria-label="Close"></button>
+      <h1 class="title">Add dates &amp; times</h1>
+      <div class="weekdays" aria-hidden="true">
+        <div class="weekday">S</div>
+        <div class="weekday">M</div>
+        <div class="weekday">T</div>
+        <div class="weekday">W</div>
+        <div class="weekday">T</div>
+        <div class="weekday">F</div>
+        <div class="weekday">S</div>
+      </div>
+    </header>
+
+    <section class="calendar" aria-label="Calendar">
+      <div class="month">
+        <div class="month-title">April 2026</div>
+        <div class="month-grid" data-month="2026-04" aria-label="April 2026"></div>
+      </div>
+
+      <div class="month">
+        <div class="month-title">May 2026</div>
+        <div class="month-grid" data-month="2026-05" aria-label="May 2026"></div>
+      </div>
+    </section>
+
+    <section class="time-card" aria-label="Time picker">
+      <div class="time-head">
+        <div>pickup time</div>
+        <div>return time</div>
+      </div>
+      <div class="time-wheel">
+        <div class="wheel-column" data-wheel="pickup" aria-label="pickup time wheel">
+          <div class="time-row"></div>
+          <div class="time-row active"></div>
+          <div class="time-row"></div>
+        </div>
+        <div class="wheel-column" data-wheel="return" aria-label="return time wheel">
+          <div class="time-row"></div>
+          <div class="time-row active"></div>
+          <div class="time-row"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="selection">
+        <span class="done" data-selection-start>13 April 14:30 -</span>
+        <span class="empty" data-selection-end>Return time not selected</span>
+      </div>
+      <div class="bottom-tab">
+        <button class="continue" type="button">Continue</button>
+        <div class="home-indicator" aria-hidden="true"></div>
+      </div>
+    </footer>
+  </main>
+  <script>
+    const months = [
+      { key: "2026-04", label: "April", year: 2026, month: 3, days: 30 },
+      { key: "2026-05", label: "May", year: 2026, month: 4, days: 16 },
+    ];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const timeOptions = Array.from({ length: 96 }, (_, index) => {
+      const minutes = index * 15;
+      const hour = Math.floor(minutes / 60);
+      const minute = minutes % 60;
+      return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+    });
+    const state = {
+      pickupDate: new Date(2026, 3, 13),
+      returnDate: new Date(2026, 3, 16),
+      picking: "pickup",
+      pickupTime: "14:30",
+      returnTime: "18:00",
+    };
+
+    const byDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+    const compareDates = (a, b) => new Date(a.getFullYear(), a.getMonth(), a.getDate()) - new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    const formatDate = (date) => `${date.getDate()} ${monthNames[date.getMonth()]}`;
+    const timeParts = (value) => {
+      const [hour, minute] = value.split(":");
+      return `<span>${hour}</span><span class="colon">:</span><span>${minute}</span>`;
+    };
+    const timeIndex = (value) => timeOptions.indexOf(value);
+    const nextTime = (value, step) => {
+      const index = timeIndex(value);
+      const next = Math.max(0, Math.min(timeOptions.length - 1, index + step));
+      return timeOptions[next];
+    };
+
+    function renderCalendar() {
+      const pickupKey = byDate(state.pickupDate);
+      const returnKey = state.returnDate ? byDate(state.returnDate) : null;
+      const rangeStart = state.returnDate && compareDates(state.pickupDate, state.returnDate) <= 0 ? state.pickupDate : state.returnDate;
+      const rangeEnd = state.returnDate && compareDates(state.pickupDate, state.returnDate) <= 0 ? state.returnDate : state.pickupDate;
+      const sameDay = state.returnDate && pickupKey === returnKey;
+
+      months.forEach((month) => {
+        const grid = document.querySelector(`[data-month="${month.key}"]`);
+        grid.innerHTML = "";
+        const firstDay = new Date(month.year, month.month, 1).getDay();
+        for (let i = 0; i < firstDay; i += 1) {
+          grid.appendChild(document.createElement("button")).className = "date";
+        }
+        for (let day = 1; day <= month.days; day += 1) {
+          const date = new Date(month.year, month.month, day);
+          const key = byDate(date);
+          const button = document.createElement("button");
+          button.className = "date";
+          button.type = "button";
+          button.dataset.date = key;
+          button.innerHTML = `<span>${day}</span>`;
+          if (key === "2026-04-01" || key === "2026-04-02") button.classList.add("disabled");
+          if (key === "2026-04-03") button.classList.add("underline");
+          if (rangeStart && rangeEnd && compareDates(date, rangeStart) > 0 && compareDates(date, rangeEnd) < 0) {
+            button.classList.add("in-range");
+          }
+          if (state.returnDate && (key === pickupKey || key === returnKey)) button.classList.add("has-range");
+          if (key === pickupKey) button.classList.add("range-start");
+          if (key === returnKey) button.classList.add("range-end");
+          if (sameDay && key === pickupKey) button.classList.add("same-day", "range-end");
+          button.addEventListener("click", () => chooseDate(date));
+          grid.appendChild(button);
+        }
+        const remainder = grid.children.length % 7;
+        if (remainder) {
+          for (let i = 0; i < 7 - remainder; i += 1) {
+            grid.appendChild(document.createElement("button")).className = "date";
+          }
+        }
+      });
+    }
+
+    function chooseDate(date) {
+      if (compareDates(date, new Date(2026, 3, 3)) < 0) return;
+      const clickedKey = byDate(date);
+      const pickupKey = state.pickupDate ? byDate(state.pickupDate) : null;
+      if (state.returnDate && clickedKey === pickupKey) {
+        state.returnDate = date;
+        state.picking = "pickup";
+        render();
+        return;
+      }
+      if (state.picking === "pickup" || !state.pickupDate || (state.pickupDate && state.returnDate)) {
+        state.pickupDate = date;
+        state.returnDate = null;
+        state.picking = "return";
+      } else if (compareDates(date, state.pickupDate) < 0) {
+        state.pickupDate = date;
+        state.returnDate = null;
+        state.picking = "return";
+      } else {
+        state.returnDate = date;
+        state.picking = "pickup";
+      }
+      render();
+    }
+
+    function renderWheel(name) {
+      const value = name === "pickup" ? state.pickupTime : state.returnTime;
+      const column = document.querySelector(`[data-wheel="${name}"]`);
+      const rows = column.querySelectorAll(".time-row");
+      const values = [nextTime(value, -1), value, nextTime(value, 1)];
+      rows.forEach((row, index) => {
+        row.innerHTML = timeParts(values[index]);
+        row.classList.toggle("active", index === 1);
+      });
+    }
+
+    function updateSelection() {
+      const start = document.querySelector("[data-selection-start]");
+      const end = document.querySelector("[data-selection-end]");
+      const button = document.querySelector(".continue");
+      start.textContent = `${formatDate(state.pickupDate)} ${state.pickupTime} -`;
+      if (state.returnDate) {
+        end.textContent = `${formatDate(state.returnDate)} ${state.returnTime}`;
+        end.classList.remove("empty");
+        end.classList.add("done");
+        button.classList.add("active");
+      } else {
+        end.textContent = "Return time not selected";
+        end.classList.add("empty");
+        end.classList.remove("done");
+        button.classList.remove("active");
+      }
+    }
+
+    function moveWheel(name, step) {
+      if (name === "pickup") {
+        state.pickupTime = nextTime(state.pickupTime, step);
+      } else {
+        state.returnTime = nextTime(state.returnTime, step);
+      }
+      render();
+    }
+
+    function attachWheel(column) {
+      const name = column.dataset.wheel;
+      let startY = null;
+      column.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        moveWheel(name, event.deltaY > 0 ? 1 : -1);
+      }, { passive: false });
+      column.addEventListener("pointerdown", (event) => {
+        startY = event.clientY;
+        column.setPointerCapture(event.pointerId);
+      });
+      column.addEventListener("pointerup", (event) => {
+        if (startY === null) return;
+        const delta = event.clientY - startY;
+        if (Math.abs(delta) > 18) moveWheel(name, delta < 0 ? 1 : -1);
+        startY = null;
+      });
+    }
+
+    function render() {
+      renderCalendar();
+      renderWheel("pickup");
+      renderWheel("return");
+      updateSelection();
+    }
+
+    document.querySelectorAll(".wheel-column").forEach(attachWheel);
+    document.querySelector(".continue").addEventListener("click", () => {
+      if (!state.returnDate) return;
+      document.querySelector(".continue").textContent = "Continue";
+    });
+    render();
+  </script>
+</body>
+</html>

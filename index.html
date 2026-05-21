@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Time Picker" />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <title>Rental Time Picker</title>
   <style>
     :root {
@@ -24,8 +29,9 @@
     html,
     body {
       margin: 0;
+      width: 100%;
       min-height: 100%;
-      background: #f4f5f7;
+      background: #fff;
       color: var(--ink);
     }
 
@@ -222,10 +228,20 @@
       position: absolute;
       left: 0;
       top: 128px;
+      bottom: 132px;
       width: 375px;
       display: flex;
       flex-direction: column;
       gap: 24px;
+      overflow-y: auto;
+      padding-bottom: 196px;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .calendar::-webkit-scrollbar {
+      display: none;
     }
 
     .month-title {
@@ -290,6 +306,16 @@
       z-index: 0;
     }
 
+    .date.in-range.row-start:not(.range-start):not(.range-end)::before {
+      left: 0;
+      border-radius: 12px 0 0 12px;
+    }
+
+    .date.in-range.row-end:not(.range-start):not(.range-end)::before {
+      right: -4px;
+      border-radius: 0 12px 12px 0;
+    }
+
     .date.range-start,
     .date.range-end {
       color: #fff;
@@ -311,10 +337,19 @@
       border-radius: 0;
     }
 
+    .date.has-range.range-start.row-end::after {
+      border-radius: 0 12px 12px 0;
+    }
+
     .date.has-range.range-end::after {
       left: -8px;
       right: 50%;
       border-radius: 0;
+    }
+
+    .date.has-range.range-end.row-start::after {
+      left: 0;
+      border-radius: 12px 0 0 12px;
     }
 
     .date.has-range.range-start.same-day::after,
@@ -393,9 +428,21 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      touch-action: none;
-      cursor: ns-resize;
+      height: 132px;
+      min-height: 0;
+      max-height: 132px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scroll-padding-block: 44px;
+      scrollbar-width: none;
+      touch-action: pan-y;
+      cursor: grab;
       user-select: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .wheel-column::-webkit-scrollbar {
+      display: none;
     }
 
     .time-row {
@@ -403,6 +450,7 @@
       align-items: center;
       justify-content: center;
       gap: 20px;
+      flex: 0 0 44px;
       height: 44px;
       border-radius: 6px;
       color: rgba(34, 34, 34, .18);
@@ -489,14 +537,24 @@
     }
 
     @media (max-width: 420px) {
+      html,
       body {
-        place-items: start center;
+        width: 100vw;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+      }
+
+      body {
+        display: block;
         background: #fff;
       }
 
       .screen {
-        width: 100vw;
-        max-width: 375px;
+        width: 375px;
+        height: calc(100dvh / (100vw / 375));
+        transform: scale(calc(100vw / 375));
+        transform-origin: top left;
         box-shadow: none;
       }
     }
@@ -527,17 +585,7 @@
       </div>
     </header>
 
-    <section class="calendar" aria-label="Calendar">
-      <div class="month">
-        <div class="month-title">April 2026</div>
-        <div class="month-grid" data-month="2026-04" aria-label="April 2026"></div>
-      </div>
-
-      <div class="month">
-        <div class="month-title">May 2026</div>
-        <div class="month-grid" data-month="2026-05" aria-label="May 2026"></div>
-      </div>
-    </section>
+    <section class="calendar" aria-label="Calendar" data-calendar></section>
 
     <section class="time-card" aria-label="Time picker">
       <div class="time-head">
@@ -570,11 +618,21 @@
     </footer>
   </main>
   <script>
-    const months = [
-      { key: "2026-04", label: "April", year: 2026, month: 3, days: 30 },
-      { key: "2026-05", label: "May", year: 2026, month: 4, days: 16 },
-    ];
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const months = Array.from({ length: 4 }, (_, index) => {
+      const monthDate = new Date(todayDate.getFullYear(), todayDate.getMonth() + index, 1);
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      return {
+        key: `${year}-${String(month + 1).padStart(2, "0")}`,
+        label: monthNames[month],
+        year,
+        month,
+        days: new Date(year, month + 1, 0).getDate(),
+      };
+    });
     const timeOptions = Array.from({ length: 96 }, (_, index) => {
       const minutes = index * 15;
       const hour = Math.floor(minutes / 60);
@@ -582,9 +640,9 @@
       return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
     });
     const state = {
-      pickupDate: new Date(2026, 3, 13),
-      returnDate: new Date(2026, 3, 16),
-      picking: "pickup",
+      pickupDate: new Date(todayDate),
+      returnDate: null,
+      picking: "return",
       pickupTime: "14:30",
       returnTime: "18:00",
     };
@@ -609,6 +667,18 @@
     };
 
     function renderCalendar() {
+      const calendar = document.querySelector("[data-calendar]");
+      if (!calendar.children.length) {
+        months.forEach((month) => {
+          const section = document.createElement("div");
+          section.className = "month";
+          section.innerHTML = `
+            <div class="month-title">${month.label} ${month.year}</div>
+            <div class="month-grid" data-month="${month.key}" aria-label="${month.label} ${month.year}"></div>
+          `;
+          calendar.appendChild(section);
+        });
+      }
       const pickupKey = byDate(state.pickupDate);
       const returnKey = state.returnDate ? byDate(state.returnDate) : null;
       const rangeStart = state.returnDate && compareDates(state.pickupDate, state.returnDate) <= 0 ? state.pickupDate : state.returnDate;
@@ -630,14 +700,21 @@
           button.type = "button";
           button.dataset.date = key;
           button.innerHTML = `<span>${day}</span>`;
-          if (key === "2026-04-01" || key === "2026-04-02") button.classList.add("disabled");
-          if (key === "2026-04-03") button.classList.add("underline");
+          if (compareDates(date, todayDate) < 0) {
+            button.classList.add("disabled");
+            button.disabled = true;
+          }
+          if (key === byDate(todayDate)) button.classList.add("underline");
           if (rangeStart && rangeEnd && compareDates(date, rangeStart) > 0 && compareDates(date, rangeEnd) < 0) {
             button.classList.add("in-range");
           }
           if (state.returnDate && (key === pickupKey || key === returnKey)) button.classList.add("has-range");
           if (key === pickupKey) button.classList.add("range-start");
           if (key === returnKey) button.classList.add("range-end");
+          if (state.returnDate && compareDates(date, rangeStart) >= 0 && compareDates(date, rangeEnd) <= 0) {
+            if (date.getDay() === 0) button.classList.add("row-start");
+            if (date.getDay() === 6) button.classList.add("row-end");
+          }
           if (sameDay && key === pickupKey) button.classList.add("same-day", "range-end");
           button.addEventListener("click", () => chooseDate(date));
           grid.appendChild(button);
@@ -652,7 +729,7 @@
     }
 
     function chooseDate(date) {
-      if (compareDates(date, new Date(2026, 3, 3)) < 0) return;
+      if (compareDates(date, todayDate) < 0) return;
       const clickedKey = byDate(date);
       const pickupKey = state.pickupDate ? byDate(state.pickupDate) : null;
       if (state.returnDate && clickedKey === pickupKey) {
@@ -676,14 +753,35 @@
       render();
     }
 
-    function renderWheel(name) {
-      const value = name === "pickup" ? state.pickupTime : state.returnTime;
+    function buildWheel(column) {
+      column.innerHTML = "";
+      const topPad = document.createElement("div");
+      topPad.className = "time-row spacer";
+      topPad.setAttribute("aria-hidden", "true");
+      column.appendChild(topPad);
+      timeOptions.forEach((value) => {
+        const row = document.createElement("div");
+        row.className = "time-row";
+        row.dataset.time = value;
+        row.innerHTML = timeParts(value);
+        column.appendChild(row);
+      });
+      const bottomPad = document.createElement("div");
+      bottomPad.className = "time-row spacer";
+      bottomPad.setAttribute("aria-hidden", "true");
+      column.appendChild(bottomPad);
+    }
+
+    function syncWheelFromState(name, behavior = "auto") {
       const column = document.querySelector(`[data-wheel="${name}"]`);
-      const rows = column.querySelectorAll(".time-row");
-      const values = [nextTime(value, -1), value, nextTime(value, 1)];
-      rows.forEach((row, index) => {
-        row.innerHTML = timeParts(values[index]);
-        row.classList.toggle("active", index === 1);
+      const value = name === "pickup" ? state.pickupTime : state.returnTime;
+      column.scrollTo({ top: timeIndex(value) * 44, behavior });
+      updateWheelActive(column, timeIndex(value));
+    }
+
+    function updateWheelActive(column, activeIndex) {
+      column.querySelectorAll(".time-row[data-time]").forEach((row, index) => {
+        row.classList.toggle("active", index === activeIndex);
       });
     }
 
@@ -705,38 +803,33 @@
       }
     }
 
-    function moveWheel(name, step) {
-      if (name === "pickup") {
-        state.pickupTime = nextTime(state.pickupTime, step);
-      } else {
-        state.returnTime = nextTime(state.returnTime, step);
-      }
-      render();
-    }
-
     function attachWheel(column) {
       const name = column.dataset.wheel;
-      let startY = null;
+      let snapTimer = null;
+      buildWheel(column);
+      column.addEventListener("scroll", () => {
+        const index = Math.max(0, Math.min(timeOptions.length - 1, Math.round(column.scrollTop / 44)));
+        if (name === "pickup") {
+          state.pickupTime = timeOptions[index];
+        } else {
+          state.returnTime = timeOptions[index];
+        }
+        updateWheelActive(column, index);
+        updateSelection();
+        window.clearTimeout(snapTimer);
+        snapTimer = window.setTimeout(() => {
+          column.scrollTo({ top: index * 44, behavior: "smooth" });
+        }, 90);
+      });
       column.addEventListener("wheel", (event) => {
         event.preventDefault();
-        moveWheel(name, event.deltaY > 0 ? 1 : -1);
+        column.scrollTop += event.deltaY;
       }, { passive: false });
-      column.addEventListener("pointerdown", (event) => {
-        startY = event.clientY;
-        column.setPointerCapture(event.pointerId);
-      });
-      column.addEventListener("pointerup", (event) => {
-        if (startY === null) return;
-        const delta = event.clientY - startY;
-        if (Math.abs(delta) > 18) moveWheel(name, delta < 0 ? 1 : -1);
-        startY = null;
-      });
+      syncWheelFromState(name);
     }
 
     function render() {
       renderCalendar();
-      renderWheel("pickup");
-      renderWheel("return");
       updateSelection();
     }
 

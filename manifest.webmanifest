@@ -1,0 +1,9 @@
+{
+  "name": "Rental Time Picker",
+  "short_name": "Time Picker",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait"
+}
